@@ -47,6 +47,8 @@ export default function RoleSetup() {
   const [selectedRole, setSelectedRole] = useState<FamilyRole | null>(null);
   const [displayName, setDisplayName] = useState("");
 
+  const { data: myFamily, isLoading: familyLoading } = trpc.family.getMyFamily.useQuery();
+
   const setProfile = trpc.family.setProfile.useMutation({
     onSuccess: () => {
       toast.success("Welcome to the family! 🏠");
@@ -62,13 +64,33 @@ export default function RoleSetup() {
     setProfile.mutate({ familyRole: selectedRole, displayName: displayName.trim() });
   };
 
+  if (familyLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="w-6 h-6 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!myFamily) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-rose-50 flex items-center justify-center p-4">
+        <div className="text-center max-w-sm">
+          <div className="text-6xl mb-4">🏠</div>
+          <p className="text-muted-foreground mb-4">You need to join or create a family first.</p>
+          <Button onClick={() => navigate("/family-setup")} size="lg" className="rounded-xl">Set Up Your Family</Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-rose-50 flex items-center justify-center p-4">
       <div className="w-full max-w-lg">
         {/* Header */}
         <div className="text-center mb-10">
           <div className="text-6xl mb-4">🏠</div>
-          <h1 className="text-4xl font-serif font-bold text-foreground mb-2">Welcome Home</h1>
+          <h1 className="text-4xl font-serif font-bold text-foreground mb-2">Welcome to {myFamily.name}!</h1>
           <p className="text-muted-foreground text-lg">
             Choose your role in the family to start tracking your contributions.
           </p>

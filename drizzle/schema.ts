@@ -5,8 +5,9 @@ import {
   text,
   timestamp,
   varchar,
-  float,
 } from "drizzle-orm/mysql-core";
+
+// ─── Users ────────────────────────────────────────────────────────────────────
 
 export const users = mysqlTable("users", {
   id: int("id").autoincrement().primaryKey(),
@@ -21,27 +22,45 @@ export const users = mysqlTable("users", {
   // Family-specific fields
   familyRole: mysqlEnum("familyRole", ["father", "mother", "kid"]),
   displayName: varchar("displayName", { length: 64 }),
+  familyId: int("familyId"),
 });
 
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 
-// Pre-defined household activity categories with default durations (in minutes)
+// ─── Families ─────────────────────────────────────────────────────────────────
+
+export const families = mysqlTable("families", {
+  id: int("id").autoincrement().primaryKey(),
+  name: varchar("name", { length: 128 }).notNull(),
+  inviteCode: varchar("inviteCode", { length: 16 }).notNull().unique(),
+  createdBy: int("createdBy").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type Family = typeof families.$inferSelect;
+export type InsertFamily = typeof families.$inferInsert;
+
+// ─── Activity categories ──────────────────────────────────────────────────────
+
 export const activityCategories = mysqlTable("activity_categories", {
   id: int("id").autoincrement().primaryKey(),
   name: varchar("name", { length: 64 }).notNull(),
   icon: varchar("icon", { length: 32 }).notNull(),
-  defaultDuration: int("defaultDuration").notNull(), // minutes
+  defaultDuration: int("defaultDuration").notNull(),
   color: varchar("color", { length: 32 }).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
 export type ActivityCategory = typeof activityCategories.$inferSelect;
 
-// Individual activity log entries
+// ─── Activity logs ────────────────────────────────────────────────────────────
+
 export const activityLogs = mysqlTable("activity_logs", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull(),
+  familyId: int("familyId").notNull(),
   categoryId: int("categoryId").notNull(),
   categoryName: varchar("categoryName", { length: 64 }).notNull(),
   categoryIcon: varchar("categoryIcon", { length: 32 }).notNull(),

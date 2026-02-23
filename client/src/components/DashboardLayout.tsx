@@ -23,7 +23,8 @@ import {
 import { getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
 import { trpc } from "@/lib/trpc";
-import { BarChart3, Clock, Home, ListChecks, LogOut, PanelLeft, Settings, Star } from "lucide-react";
+import { BarChart3, Clock, Copy, Home, ListChecks, LogOut, PanelLeft, Settings, Star } from "lucide-react";
+import { toast } from "sonner";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from "./DashboardLayoutSkeleton";
@@ -105,8 +106,8 @@ function DashboardLayoutContent({
   const sidebarRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
 
-  const { data: members } = trpc.family.getMembers.useQuery();
-  const currentProfile = members?.find((m) => m.id === user?.id);
+  const { data: myFamily } = trpc.family.getMyFamily.useQuery();
+  const currentProfile = myFamily?.members?.find((m: any) => m.id === user?.id);
   const activeMenuItem = menuItems.find((item) => item.path === location);
 
   useEffect(() => {
@@ -151,7 +152,12 @@ function DashboardLayoutContent({
               {!isCollapsed && (
                 <div className="flex items-center gap-2 min-w-0">
                   <span className="text-lg">🏠</span>
-                  <span className="font-serif font-semibold text-foreground truncate">FamilyChores</span>
+                  <div className="flex flex-col min-w-0">
+                    <span className="font-serif font-semibold text-foreground truncate leading-tight">FamilyChores</span>
+                    {myFamily && (
+                      <span className="text-[10px] text-muted-foreground truncate leading-tight">{myFamily.name}</span>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
@@ -200,6 +206,18 @@ function DashboardLayoutContent({
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-52">
+                {myFamily && (
+                  <DropdownMenuItem
+                    onClick={() => {
+                      navigator.clipboard.writeText(myFamily.inviteCode);
+                      toast.success(`Invite code copied: ${myFamily.inviteCode}`);
+                    }}
+                    className="cursor-pointer"
+                  >
+                    <Copy className="mr-2 h-4 w-4" />
+                    <span>Copy Invite Code</span>
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem onClick={() => setLocation("/setup")} className="cursor-pointer">
                   <Settings className="mr-2 h-4 w-4" />
                   <span>Change Role</span>

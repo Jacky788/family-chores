@@ -18,7 +18,8 @@ const ROLE_CLASS: Record<string, string> = { father: "role-father", mother: "rol
 export default function History() {
   const [filterUserId, setFilterUserId] = useState<string>("all");
 
-  const { data: members } = trpc.family.getMembers.useQuery();
+  const { data: myFamily } = trpc.family.getMyFamily.useQuery();
+  const members = myFamily?.members;
 
   const { data: logs, isLoading } = trpc.activities.getHistory.useQuery({
     userId: filterUserId !== "all" ? parseInt(filterUserId) : undefined,
@@ -28,7 +29,7 @@ export default function History() {
 
   const memberMap = useMemo(() => {
     const map: Record<number, { displayName: string | null; familyRole: string | null; name: string | null }> = {};
-    members?.forEach((m) => { map[m.id] = m; });
+    members?.forEach((m: any) => { map[m.id] = m; });
     return map;
   }, [members]);
 
@@ -62,7 +63,7 @@ export default function History() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Members</SelectItem>
-            {members?.map((m) => (
+            {members?.map((m: any) => (
               <SelectItem key={m.id} value={String(m.id)}>
                 {ROLE_EMOJI[m.familyRole ?? "kid"]} {m.displayName ?? m.name}
               </SelectItem>

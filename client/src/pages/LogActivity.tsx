@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { useCelebration, getCelebrationMessage } from "@/hooks/useCelebration";
 import CelebrationOverlay from "@/components/CelebrationOverlay";
 import { useAuth } from "@/_core/hooks/useAuth";
+import { useLocation } from "wouter";
 
 interface CelebrationState {
   durationMinutes: number;
@@ -19,8 +20,11 @@ interface CelebrationState {
 
 export default function LogActivity() {
   const { user } = useAuth();
+  const [, navigate] = useLocation();
   const { celebrate } = useCelebration();
   const utils = trpc.useUtils();
+
+  const { data: myFamily, isLoading: familyLoading } = trpc.family.getMyFamily.useQuery(undefined, { enabled: !!user });
 
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<{
@@ -83,6 +87,16 @@ export default function LogActivity() {
     return (
       <div className="flex items-center justify-center h-64">
         <p className="text-muted-foreground">Please sign in to log activities.</p>
+      </div>
+    );
+  }
+
+  if (!familyLoading && myFamily === null) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 gap-4">
+        <div className="text-4xl">🏠</div>
+        <p className="text-muted-foreground text-center">You need to join or create a family first.</p>
+        <Button onClick={() => navigate("/family-setup")} className="rounded-xl">Set Up Your Family</Button>
       </div>
     );
   }

@@ -1,22 +1,40 @@
+import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import {
-  getAllFamilyMembers,
+  createFamily,
   getActivityCategories,
-  getDashboardAggregates,
   getActivityLogs,
+  getDashboardAggregates,
+  getFamilyById,
+  getFamilyMembers,
   getUserTotalMinutes,
   insertActivityLog,
+  joinFamilyByCode,
+  regenerateInviteCode,
   seedDefaultCategories,
   updateUserProfile,
 } from "./db";
-import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays } from "date-fns";
+import {
+  startOfDay, endOfDay,
+  startOfWeek, endOfWeek,
+  startOfMonth, endOfMonth,
+  subDays,
+} from "date-fns";
 
 // Seed default categories on startup
 seedDefaultCategories().catch(console.error);
+
+// Helper: assert the calling user belongs to a family
+async function requireFamilyMember(user: { id: number; familyId: number | null | undefined }) {
+  if (!user.familyId) {
+    throw new TRPCError({ code: "FORBIDDEN", message: "You must join or create a family first." });
+  }
+  return user.familyId;
+}
 
 export const appRouter = router({
   system: systemRouter,
@@ -30,7 +48,40 @@ export const appRouter = router({
     }),
   }),
 
+  // ─── Family management ─────────────────────────────────────────────────────
   family: router({
+    // Get the current user's family info + members
+    getMyFamily: protectedProcedure.query(async ({ ctx }) => {
+      if (!ctx.user.familyId) return null;
+      const [family, members] = await Promise.all([
+        getFamilyById(ctx.user.familyId),
+        getFamilyMembers(ctx.user.familyId),
+      ]);
+      return family ? { ...family, members } : null;
+    }),
+
+    // Create a new family (also assigns the creator to it)
+    create: protectedProcedure
+      .input(z.object({ name: z.string().min(1).max(64) }))
+      .mutation(async ({ ctx, input }) => {
+        if (ctx.user.familyId) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "You already belong to a family." });
+        }
+        const family = await createFamily(input.name, ctx.user.id);
+        return family;
+      }),
+
+    // Join an existing family by invite code
+    join: protectedProcedure
+      .input(z.object({ inviteCode: z.string().min(1).max(16) }))
+      .mutation(async ({ ctx, input }) => {
+        if (ctx.user.familyId) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "You already belong to a family." });
+        }
+        const family = await joinFamilyByCode(input.inviteCode, ctx.user.id);
+        return family;
+      }),
+
     // Set the current user's family role and display name
     setProfile: protectedProcedure
       .input(
@@ -47,19 +98,20 @@ export const appRouter = router({
         return { success: true };
       }),
 
-    // Get all family members who have set a role
-    getMembers: publicProcedure.query(async () => {
-      return getAllFamilyMembers();
+    // Regenerate invite code (creator only)
+    regenerateInviteCode: protectedProcedure.mutation(async ({ ctx }) => {
+      const familyId = await requireFamilyMember(ctx.user);
+      const newCode = await regenerateInviteCode(familyId, ctx.user.id);
+      return { inviteCode: newCode };
     }),
   }),
 
+  // ─── Activities ────────────────────────────────────────────────────────────
   activities: router({
-    // Get all activity categories with defaults
     getCategories: publicProcedure.query(async () => {
       return getActivityCategories();
     }),
 
-    // Log a new activity
     log: protectedProcedure
       .input(
         z.object({
@@ -69,13 +121,15 @@ export const appRouter = router({
           categoryColor: z.string(),
           durationMinutes: z.number().int().min(1).max(1440),
           customNote: z.string().max(200).optional(),
-          loggedAt: z.number().optional(), // UTC timestamp ms
+          loggedAt: z.number().optional(),
         })
       )
       .mutation(async ({ ctx, input }) => {
+        const familyId = await requireFamilyMember(ctx.user);
         const loggedAt = input.loggedAt ? new Date(input.loggedAt) : new Date();
         const id = await insertActivityLog({
           userId: ctx.user.id,
+          familyId,
           categoryId: input.categoryId,
           categoryName: input.categoryName,
           categoryIcon: input.categoryIcon,
@@ -87,7 +141,6 @@ export const appRouter = router({
         return { id, success: true };
       }),
 
-    // Get activity history (all family or specific user)
     getHistory: protectedProcedure
       .input(
         z.object({
@@ -98,51 +151,47 @@ export const appRouter = router({
           to: z.number().optional(),
         })
       )
-      .query(async ({ input }) => {
-        const logs = await getActivityLogs({
+      .query(async ({ ctx, input }) => {
+        const familyId = await requireFamilyMember(ctx.user);
+        return getActivityLogs({
+          familyId,
           userId: input.userId,
           from: input.from ? new Date(input.from) : undefined,
           to: input.to ? new Date(input.to) : undefined,
           limit: input.limit,
           offset: input.offset,
         });
-        return logs;
       }),
 
-    // Get dashboard aggregates for a time range
     getDashboard: protectedProcedure
       .input(
         z.object({
           period: z.enum(["daily", "weekly", "monthly"]),
-          referenceDate: z.number().optional(), // UTC timestamp ms
+          referenceDate: z.number().optional(),
         })
       )
-      .query(async ({ input }) => {
+      .query(async ({ ctx, input }) => {
+        const familyId = await requireFamilyMember(ctx.user);
         const ref = input.referenceDate ? new Date(input.referenceDate) : new Date();
-        let from: Date;
-        let to: Date;
+        let from: Date, to: Date;
 
         if (input.period === "daily") {
-          from = startOfDay(ref);
-          to = endOfDay(ref);
+          from = startOfDay(ref); to = endOfDay(ref);
         } else if (input.period === "weekly") {
-          from = startOfWeek(ref, { weekStartsOn: 1 });
-          to = endOfWeek(ref, { weekStartsOn: 1 });
+          from = startOfWeek(ref, { weekStartsOn: 1 }); to = endOfWeek(ref, { weekStartsOn: 1 });
         } else {
-          from = startOfMonth(ref);
-          to = endOfMonth(ref);
+          from = startOfMonth(ref); to = endOfMonth(ref);
         }
 
         const [aggregates, totals, members] = await Promise.all([
-          getDashboardAggregates({ from, to }),
-          getUserTotalMinutes({ from, to }),
-          getAllFamilyMembers(),
+          getDashboardAggregates({ familyId, from, to }),
+          getUserTotalMinutes({ familyId, from, to }),
+          getFamilyMembers(familyId),
         ]);
 
         return { aggregates, totals, members, from: from.getTime(), to: to.getTime() };
       }),
 
-    // Get summary stats
     getStats: protectedProcedure
       .input(
         z.object({
@@ -150,17 +199,18 @@ export const appRouter = router({
           days: z.number().int().min(1).max(365).default(30),
         })
       )
-      .query(async ({ input }) => {
+      .query(async ({ ctx, input }) => {
+        const familyId = await requireFamilyMember(ctx.user);
         const to = new Date();
         const from = subDays(to, input.days);
 
-        const [logs, totals, members] = await Promise.all([
-          getDashboardAggregates({ from, to }),
-          getUserTotalMinutes({ from, to }),
-          getAllFamilyMembers(),
+        const [aggregates, totals, members] = await Promise.all([
+          getDashboardAggregates({ familyId, from, to }),
+          getUserTotalMinutes({ familyId, from, to }),
+          getFamilyMembers(familyId),
         ]);
 
-        return { aggregates: logs, totals, members };
+        return { aggregates, totals, members };
       }),
   }),
 });

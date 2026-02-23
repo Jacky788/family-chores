@@ -1,12 +1,15 @@
 import { and, desc, eq, gte, lte, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
+import { nanoid } from "nanoid";
 import {
   ActivityCategory,
   ActivityLog,
+  Family,
   InsertActivityLog,
   InsertUser,
   activityCategories,
   activityLogs,
+  families,
   users,
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
@@ -62,14 +65,14 @@ export async function getUserByOpenId(openId: string) {
 
 export async function updateUserProfile(
   userId: number,
-  data: { familyRole?: "father" | "mother" | "kid"; displayName?: string }
+  data: { familyRole?: "father" | "mother" | "kid"; displayName?: string; familyId?: number }
 ) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   await db.update(users).set(data).where(eq(users.id, userId));
 }
 
-export async function getAllFamilyMembers() {
+export async function getFamilyMembers(familyId: number) {
   const db = await getDb();
   if (!db) return [];
   return db
@@ -78,9 +81,69 @@ export async function getAllFamilyMembers() {
       displayName: users.displayName,
       familyRole: users.familyRole,
       name: users.name,
+      familyId: users.familyId,
     })
     .from(users)
-    .where(sql`${users.familyRole} IS NOT NULL`);
+    .where(eq(users.familyId, familyId));
+}
+
+// ─── Family helpers ───────────────────────────────────────────────────────────
+
+function generateInviteCode(): string {
+  // 8-char uppercase alphanumeric, easy to share
+  return nanoid(8).toUpperCase().replace(/[^A-Z0-9]/g, "X").slice(0, 8);
+}
+
+export async function createFamily(name: string, createdBy: number): Promise<Family> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const inviteCode = generateInviteCode();
+  await db.insert(families).values({ name, inviteCode, createdBy });
+
+  const result = await db.select().from(families).where(eq(families.inviteCode, inviteCode)).limit(1);
+  if (!result[0]) throw new Error("Failed to create family");
+
+  // Assign creator to the family
+  await db.update(users).set({ familyId: result[0].id }).where(eq(users.id, createdBy));
+
+  return result[0];
+}
+
+export async function joinFamilyByCode(inviteCode: string, userId: number): Promise<Family> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const result = await db
+    .select()
+    .from(families)
+    .where(eq(families.inviteCode, inviteCode.toUpperCase().trim()))
+    .limit(1);
+
+  if (!result[0]) throw new Error("Invalid invite code. Please check and try again.");
+
+  await db.update(users).set({ familyId: result[0].id }).where(eq(users.id, userId));
+  return result[0];
+}
+
+export async function getFamilyById(familyId: number): Promise<Family | undefined> {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(families).where(eq(families.id, familyId)).limit(1);
+  return result[0];
+}
+
+export async function regenerateInviteCode(familyId: number, requestedBy: number): Promise<string> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const family = await getFamilyById(familyId);
+  if (!family) throw new Error("Family not found");
+  if (family.createdBy !== requestedBy) throw new Error("Only the family creator can regenerate the invite code");
+
+  const newCode = generateInviteCode();
+  await db.update(families).set({ inviteCode: newCode }).where(eq(families.id, familyId));
+  return newCode;
 }
 
 // ─── Activity category helpers ────────────────────────────────────────────────
@@ -127,6 +190,7 @@ export async function insertActivityLog(data: InsertActivityLog): Promise<number
 }
 
 export async function getActivityLogs(params: {
+  familyId: number;
   userId?: number;
   from?: Date;
   to?: Date;
@@ -136,23 +200,21 @@ export async function getActivityLogs(params: {
   const db = await getDb();
   if (!db) return [];
 
-  const conditions = [];
+  const conditions = [eq(activityLogs.familyId, params.familyId)];
   if (params.userId) conditions.push(eq(activityLogs.userId, params.userId));
   if (params.from) conditions.push(gte(activityLogs.loggedAt, params.from));
   if (params.to) conditions.push(lte(activityLogs.loggedAt, params.to));
 
-  const query = db
+  return db
     .select()
     .from(activityLogs)
-    .where(conditions.length > 0 ? and(...conditions) : undefined)
+    .where(and(...conditions))
     .orderBy(desc(activityLogs.loggedAt))
     .limit(params.limit ?? 50)
     .offset(params.offset ?? 0);
-
-  return query;
 }
 
-export async function getDashboardAggregates(params: { from: Date; to: Date }) {
+export async function getDashboardAggregates(params: { familyId: number; from: Date; to: Date }) {
   const db = await getDb();
   if (!db) return [];
 
@@ -168,6 +230,7 @@ export async function getDashboardAggregates(params: { from: Date; to: Date }) {
     .from(activityLogs)
     .where(
       and(
+        eq(activityLogs.familyId, params.familyId),
         gte(activityLogs.loggedAt, params.from),
         lte(activityLogs.loggedAt, params.to)
       )
@@ -180,7 +243,7 @@ export async function getDashboardAggregates(params: { from: Date; to: Date }) {
     );
 }
 
-export async function getUserTotalMinutes(params: { from: Date; to: Date }) {
+export async function getUserTotalMinutes(params: { familyId: number; from: Date; to: Date }) {
   const db = await getDb();
   if (!db) return [];
 
@@ -193,6 +256,7 @@ export async function getUserTotalMinutes(params: { from: Date; to: Date }) {
     .from(activityLogs)
     .where(
       and(
+        eq(activityLogs.familyId, params.familyId),
         gte(activityLogs.loggedAt, params.from),
         lte(activityLogs.loggedAt, params.to)
       )

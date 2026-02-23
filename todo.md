@@ -25,3 +25,18 @@
 - [x] Empty states for all pages
 - [x] Loading skeletons
 - [x] Vitest unit tests (9 tests passing)
+
+## Family Group System
+- [x] Add families table (id, name, inviteCode, createdBy, createdAt)
+- [x] Add familyId column to users table
+- [x] Add familyId column to activityLogs table
+- [x] Migrate DB
+- [x] Server: createFamily mutation
+- [x] Server: joinFamily mutation (by invite code)
+- [x] Server: getMyFamily query
+- [x] Server: regenerateInviteCode mutation
+- [x] Scope all data queries to familyId
+- [x] FamilySetup page: create new family OR join with invite code
+- [x] Show invite code in sidebar/settings for easy sharing
+- [x] Gate all app pages behind family membership
+- [x] Update role setup to happen after family join

@@ -15,6 +15,13 @@
       "when": 1771804794674,
       "tag": "0001_chubby_wendell_vaughn",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1771805497158,
+      "tag": "0002_curious_daredevil",
+      "breakpoints": true
     }
   ]
 }

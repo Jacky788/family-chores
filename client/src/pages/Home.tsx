@@ -22,11 +22,12 @@ export default function Home() {
   const { user, loading, isAuthenticated } = useAuth();
   const [, navigate] = useLocation();
 
-  const { data: members } = trpc.family.getMembers.useQuery();
+  const { data: myFamily } = trpc.family.getMyFamily.useQuery(undefined, { enabled: isAuthenticated });
+  const members = myFamily?.members;
   const [refDate] = useMemo(() => [Date.now()], []);
   const { data: weeklyData } = trpc.activities.getDashboard.useQuery(
     { period: "weekly", referenceDate: refDate },
-    { enabled: isAuthenticated }
+    { enabled: isAuthenticated && !!myFamily }
   );
 
   const totalsMap = useMemo(() => {
@@ -37,17 +38,18 @@ export default function Home() {
 
   const topMember = useMemo(() => {
     if (!weeklyData?.members.length) return null;
-    return [...(weeklyData.members)].sort((a, b) => (totalsMap[b.id] ?? 0) - (totalsMap[a.id] ?? 0))[0];
+    return [...(weeklyData.members)].sort((a: any, b: any) => (totalsMap[b.id] ?? 0) - (totalsMap[a.id] ?? 0))[0];
   }, [weeklyData?.members, totalsMap]);
 
   const totalWeeklyMin = useMemo(() => Object.values(totalsMap).reduce((s, v) => s + v, 0), [totalsMap]);
 
   const currentUserProfile = useMemo(() => {
     if (!user) return null;
-    return members?.find((m) => m.id === user.id) ?? null;
+    return members?.find((m: any) => m.id === user.id) ?? null;
   }, [user, members]);
 
-  const needsRoleSetup = isAuthenticated && !loading && !currentUserProfile;
+  const needsRoleSetup = isAuthenticated && !loading && myFamily && !currentUserProfile?.familyRole;
+  const needsFamilySetup = isAuthenticated && !loading && myFamily === null;
 
   if (loading) {
     return (
@@ -105,14 +107,30 @@ export default function Home() {
     );
   }
 
+  // Needs family setup
+  if (needsFamilySetup) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <div className="text-center max-w-sm">
+          <div className="text-6xl mb-4">🏠</div>
+          <h2 className="text-2xl font-serif font-bold text-foreground mb-2">Welcome, {user?.name}!</h2>
+          <p className="text-muted-foreground mb-6">Create a new family or join an existing one to get started.</p>
+          <Button onClick={() => navigate("/family-setup")} size="lg" className="rounded-xl">
+            Set Up Your Family
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   // Needs role setup
   if (needsRoleSetup) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4">
         <div className="text-center max-w-sm">
           <div className="text-6xl mb-4">👋</div>
-          <h2 className="text-2xl font-serif font-bold text-foreground mb-2">Welcome, {user?.name}!</h2>
-          <p className="text-muted-foreground mb-6">Let's set up your family role before we get started.</p>
+          <h2 className="text-2xl font-serif font-bold text-foreground mb-2">One more step!</h2>
+          <p className="text-muted-foreground mb-6">Choose your role in the {myFamily?.name} family.</p>
           <Button onClick={() => navigate("/setup")} size="lg" className="rounded-xl">
             Set Up My Role
           </Button>

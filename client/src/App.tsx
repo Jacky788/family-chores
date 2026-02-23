@@ -7,6 +7,7 @@ import { ThemeProvider } from "./contexts/ThemeContext";
 import DashboardLayout from "./components/DashboardLayout";
 import Home from "./pages/Home";
 import RoleSetup from "./pages/RoleSetup";
+import FamilySetup from "./pages/FamilySetup";
 import LogActivity from "./pages/LogActivity";
 import Dashboard from "./pages/Dashboard";
 import History from "./pages/History";
@@ -15,7 +16,8 @@ import Stats from "./pages/Stats";
 function Router() {
   return (
     <Switch>
-      {/* Role setup — full page, no sidebar */}
+      {/* Full-page flows — no sidebar */}
+      <Route path="/family-setup" component={FamilySetup} />
       <Route path="/setup" component={RoleSetup} />
 
       {/* All other routes use DashboardLayout */}
