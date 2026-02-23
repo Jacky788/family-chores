@@ -4,8 +4,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { getLoginUrl } from "@/const";
 import { trpc } from "@/lib/trpc";
 import { useLocation } from "wouter";
-import { useMemo } from "react";
-import { Clock, BarChart3, ListChecks, Star } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Clock, BarChart3, ListChecks, Star, UserPlus } from "lucide-react";
+import { InviteModal } from "@/components/InviteModal";
 
 const ROLE_EMOJI: Record<string, string> = { father: "👨", mother: "👩", kid: "🧒" };
 const ROLE_CLASS: Record<string, string> = { father: "role-father", mother: "role-mother", kid: "role-kid" };
@@ -21,6 +22,7 @@ function formatMinutes(minutes: number): string {
 export default function Home() {
   const { user, loading, isAuthenticated } = useAuth();
   const [, navigate] = useLocation();
+  const [inviteOpen, setInviteOpen] = useState(false);
 
   const { data: myFamily } = trpc.family.getMyFamily.useQuery(undefined, { enabled: isAuthenticated });
   const members = myFamily?.members;
@@ -159,16 +161,17 @@ export default function Home() {
       </div>
 
       {/* Quick actions */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
         {[
           { icon: <Clock className="w-5 h-5" />, label: "Log Activity", path: "/log", color: "bg-primary text-primary-foreground" },
           { icon: <BarChart3 className="w-5 h-5" />, label: "Dashboard", path: "/dashboard", color: "bg-card text-foreground border border-border" },
           { icon: <ListChecks className="w-5 h-5" />, label: "History", path: "/history", color: "bg-card text-foreground border border-border" },
           { icon: <Star className="w-5 h-5" />, label: "Statistics", path: "/stats", color: "bg-card text-foreground border border-border" },
+          { icon: <UserPlus className="w-5 h-5" />, label: "Invite Member", path: null, color: "bg-card text-primary border border-primary/30" },
         ].map((action) => (
           <button
-            key={action.path}
-            onClick={() => navigate(action.path)}
+            key={action.label}
+            onClick={() => action.path ? navigate(action.path) : setInviteOpen(true)}
             className={`flex flex-col items-center gap-2 p-4 rounded-2xl font-medium text-sm transition-all hover:scale-[1.03] cursor-pointer shadow-sm ${action.color}`}
           >
             {action.icon}
@@ -176,6 +179,7 @@ export default function Home() {
           </button>
         ))}
       </div>
+      <InviteModal open={inviteOpen} onOpenChange={setInviteOpen} />
 
       {/* This week summary */}
       {weeklyData && (

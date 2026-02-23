@@ -4,12 +4,15 @@ import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
+import { sdk } from "./_core/sdk";
 import {
   createFamily,
+  createGuestUser,
   getActivityCategories,
   getActivityLogs,
   getDashboardAggregates,
   getFamilyById,
+  getFamilyByInviteCode,
   getFamilyMembers,
   getUserTotalMinutes,
   insertActivityLog,
@@ -104,6 +107,40 @@ export const appRouter = router({
       const newCode = await regenerateInviteCode(familyId, ctx.user.id);
       return { inviteCode: newCode };
     }),
+
+    // Guest join: create a guest user account by invite code (no OAuth needed)
+    guestJoin: publicProcedure
+      .input(
+        z.object({
+          inviteCode: z.string().min(1).max(16),
+          displayName: z.string().min(1).max(64),
+          familyRole: z.enum(["father", "mother", "kid"]),
+        })
+      )
+      .mutation(async ({ ctx, input }) => {
+        // Look up the family by invite code
+        const family = await getFamilyByInviteCode(input.inviteCode);
+        if (!family) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Invalid invite code. Please check and try again." });
+        }
+
+        // Create a guest user record
+        const { user, guestToken } = await createGuestUser({
+          displayName: input.displayName,
+          familyRole: input.familyRole,
+          familyId: family.id,
+        });
+
+        // Issue a session cookie using the guest's openId
+        const sessionToken = await sdk.createSessionToken(user.openId, { name: input.displayName });
+        const cookieOptions = getSessionCookieOptions(ctx.req);
+        ctx.res.cookie(COOKIE_NAME, sessionToken, {
+          ...cookieOptions,
+          maxAge: 1000 * 60 * 60 * 24 * 365,
+        });
+
+        return { success: true, familyName: family.name, displayName: input.displayName };
+      }),
   }),
 
   // ─── Activities ────────────────────────────────────────────────────────────

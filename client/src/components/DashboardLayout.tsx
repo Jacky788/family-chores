@@ -23,12 +23,12 @@ import {
 import { getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
 import { trpc } from "@/lib/trpc";
-import { BarChart3, Clock, Copy, Home, ListChecks, LogOut, PanelLeft, Settings, Star } from "lucide-react";
-import { toast } from "sonner";
+import { BarChart3, Clock, Home, ListChecks, LogOut, PanelLeft, Settings, Star, UserPlus } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from "./DashboardLayoutSkeleton";
 import { Button } from "./ui/button";
+import { InviteModal } from "./InviteModal";
 
 const menuItems = [
   { icon: Home, label: "Home", path: "/" },
@@ -109,6 +109,7 @@ function DashboardLayoutContent({
   const { data: myFamily } = trpc.family.getMyFamily.useQuery();
   const currentProfile = myFamily?.members?.find((m: any) => m.id === user?.id);
   const activeMenuItem = menuItems.find((item) => item.path === location);
+  const [inviteOpen, setInviteOpen] = useState(false);
 
   useEffect(() => {
     if (isCollapsed) setIsResizing(false);
@@ -181,6 +182,18 @@ function DashboardLayoutContent({
                   </SidebarMenuItem>
                 );
               })}
+              {myFamily && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    onClick={() => setInviteOpen(true)}
+                    tooltip="Invite Family Member"
+                    className="h-10 transition-all font-normal text-primary hover:text-primary"
+                  >
+                    <UserPlus className="h-4 w-4" />
+                    <span>Invite Member</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
             </SidebarMenu>
           </SidebarContent>
 
@@ -208,14 +221,11 @@ function DashboardLayoutContent({
               <DropdownMenuContent align="end" className="w-52">
                 {myFamily && (
                   <DropdownMenuItem
-                    onClick={() => {
-                      navigator.clipboard.writeText(myFamily.inviteCode);
-                      toast.success(`Invite code copied: ${myFamily.inviteCode}`);
-                    }}
+                    onClick={() => setInviteOpen(true)}
                     className="cursor-pointer"
                   >
-                    <Copy className="mr-2 h-4 w-4" />
-                    <span>Copy Invite Code</span>
+                    <UserPlus className="mr-2 h-4 w-4" />
+                    <span>Invite Family Member</span>
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuItem onClick={() => setLocation("/setup")} className="cursor-pointer">
@@ -240,6 +250,7 @@ function DashboardLayoutContent({
         />
       </div>
 
+      <InviteModal open={inviteOpen} onOpenChange={setInviteOpen} />
       <SidebarInset>
         {isMobile && (
           <div className="flex border-b h-14 items-center justify-between bg-background/95 px-3 backdrop-blur supports-[backdrop-filter]:backdrop-blur sticky top-0 z-40">

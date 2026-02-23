@@ -1,4 +1,5 @@
 import {
+  boolean,
   int,
   mysqlEnum,
   mysqlTable,
@@ -23,6 +24,9 @@ export const users = mysqlTable("users", {
   familyRole: mysqlEnum("familyRole", ["father", "mother", "kid"]),
   displayName: varchar("displayName", { length: 64 }),
   familyId: int("familyId"),
+  // Guest user fields (joined via invite code, no OAuth)
+  isGuest: boolean("isGuest").default(false).notNull(),
+  guestToken: varchar("guestToken", { length: 128 }),
 });
 
 export type User = typeof users.$inferSelect;

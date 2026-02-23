@@ -8,6 +8,7 @@ import DashboardLayout from "./components/DashboardLayout";
 import Home from "./pages/Home";
 import RoleSetup from "./pages/RoleSetup";
 import FamilySetup from "./pages/FamilySetup";
+import GuestJoin from "./pages/GuestJoin";
 import LogActivity from "./pages/LogActivity";
 import Dashboard from "./pages/Dashboard";
 import History from "./pages/History";
@@ -19,6 +20,8 @@ function Router() {
       {/* Full-page flows — no sidebar */}
       <Route path="/family-setup" component={FamilySetup} />
       <Route path="/setup" component={RoleSetup} />
+      <Route path="/join/:code" component={GuestJoin} />
+      <Route path="/join" component={GuestJoin} />
 
       {/* All other routes use DashboardLayout */}
       <Route>

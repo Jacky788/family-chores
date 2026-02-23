@@ -63,6 +63,42 @@ export async function getUserByOpenId(openId: string) {
   return result.length > 0 ? result[0] : undefined;
 }
 
+export async function getUserByGuestToken(guestToken: string) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(users).where(eq(users.guestToken, guestToken)).limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
+export async function createGuestUser(params: {
+  displayName: string;
+  familyRole: "father" | "mother" | "kid";
+  familyId: number;
+}): Promise<{ user: typeof users.$inferSelect; guestToken: string }> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const guestToken = nanoid(48);
+  // Use a unique openId for guest users so the unique constraint is satisfied
+  const openId = `guest_${nanoid(32)}`;
+
+  await db.insert(users).values({
+    openId,
+    name: params.displayName,
+    loginMethod: "guest",
+    isGuest: true,
+    guestToken,
+    familyId: params.familyId,
+    familyRole: params.familyRole,
+    displayName: params.displayName,
+    lastSignedIn: new Date(),
+  });
+
+  const result = await db.select().from(users).where(eq(users.guestToken, guestToken)).limit(1);
+  if (!result[0]) throw new Error("Failed to create guest user");
+  return { user: result[0], guestToken };
+}
+
 export async function updateUserProfile(
   userId: number,
   data: { familyRole?: "father" | "mother" | "kid"; displayName?: string; familyId?: number }
@@ -130,6 +166,17 @@ export async function getFamilyById(familyId: number): Promise<Family | undefine
   const db = await getDb();
   if (!db) return undefined;
   const result = await db.select().from(families).where(eq(families.id, familyId)).limit(1);
+  return result[0];
+}
+
+export async function getFamilyByInviteCode(inviteCode: string): Promise<Family | undefined> {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db
+    .select()
+    .from(families)
+    .where(eq(families.inviteCode, inviteCode.toUpperCase().trim()))
+    .limit(1);
   return result[0];
 }
 

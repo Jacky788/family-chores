@@ -46,3 +46,10 @@
 - [x] Fix: setProfile should work even without a family (role/name can be set independently)
 - [x] Fix: Dashboard/History/Stats pages now gate queries behind myFamily existence
 - [x] Fix: Existing user with familyId=null linked to their family in DB
+
+## Invite & Guest Access
+- [x] Guest login: join family with just an access code (no OAuth required)
+- [x] Guest users stored in DB with a generated guest session token (cookie-based)
+- [x] All family members can see and copy/share the invite code
+- [x] Invite page at /join/[CODE] that pre-fills the code and prompts name + role
+- [x] Show invite code prominently on home page and in a dedicated share modal
