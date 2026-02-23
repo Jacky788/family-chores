@@ -4,32 +4,42 @@ import NotFound from "@/pages/NotFound";
 import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
+import DashboardLayout from "./components/DashboardLayout";
 import Home from "./pages/Home";
+import RoleSetup from "./pages/RoleSetup";
+import LogActivity from "./pages/LogActivity";
+import Dashboard from "./pages/Dashboard";
+import History from "./pages/History";
+import Stats from "./pages/Stats";
 
 function Router() {
-  // make sure to consider if you need authentication for certain routes
   return (
     <Switch>
-      <Route path={"/"} component={Home} />
-      <Route path={"/404"} component={NotFound} />
-      {/* Final fallback route */}
-      <Route component={NotFound} />
+      {/* Role setup — full page, no sidebar */}
+      <Route path="/setup" component={RoleSetup} />
+
+      {/* All other routes use DashboardLayout */}
+      <Route>
+        <DashboardLayout>
+          <Switch>
+            <Route path="/" component={Home} />
+            <Route path="/log" component={LogActivity} />
+            <Route path="/dashboard" component={Dashboard} />
+            <Route path="/history" component={History} />
+            <Route path="/stats" component={Stats} />
+            <Route path="/404" component={NotFound} />
+            <Route component={NotFound} />
+          </Switch>
+        </DashboardLayout>
+      </Route>
     </Switch>
   );
 }
 
-// NOTE: About Theme
-// - First choose a default theme according to your design style (dark or light bg), than change color palette in index.css
-//   to keep consistent foreground/background color across components
-// - If you want to make theme switchable, pass `switchable` ThemeProvider and use `useTheme` hook
-
 function App() {
   return (
     <ErrorBoundary>
-      <ThemeProvider
-        defaultTheme="light"
-        // switchable
-      >
+      <ThemeProvider defaultTheme="light">
         <TooltipProvider>
           <Toaster />
           <Router />
