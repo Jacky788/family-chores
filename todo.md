@@ -40,3 +40,9 @@
 - [x] Show invite code in sidebar/settings for easy sharing
 - [x] Gate all app pages behind family membership
 - [x] Update role setup to happen after family join
+
+## Bug Fixes
+- [x] Fix: /setup throws FORBIDDEN for users with familyId=null (getMyFamily should not require family)
+- [x] Fix: setProfile should work even without a family (role/name can be set independently)
+- [x] Fix: Dashboard/History/Stats pages now gate queries behind myFamily existence
+- [x] Fix: Existing user with familyId=null linked to their family in DB

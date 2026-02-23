@@ -1,0 +1,20 @@
+{
+  "query": "SELECT id, name, displayName, familyRole, familyId FROM users; SELECT id, name, inviteCode, createdBy FROM families;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2f2RYbAGGdYN6Lf.root --database 24mUWvZX26rHKByHVMUzUb --execute SELECT id, name, displayName, familyRole, familyId FROM users; SELECT id, name, inviteCode, createdBy FROM families;",
+  "rows": [
+    {
+      "id": "1",
+      "name": "Jacky Wang",
+      "displayName": "Daddy",
+      "familyRole": "father",
+      "familyId": "1"
+    }
+  ],
+  "messages": [
+    "id\tname\tinviteCode\tcreatedBy",
+    "1\tcjdaiwang\tKO5EJWJJ\t1"
+  ],
+  "stdout": "id\tname\tdisplayName\tfamilyRole\tfamilyId\n1\tJacky Wang\tDaddy\tfather\t1\nid\tname\tinviteCode\tcreatedBy\n1\tcjdaiwang\tKO5EJWJJ\t1\n",
+  "stderr": "",
+  "execution_time_ms": 387
+}

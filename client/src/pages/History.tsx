@@ -18,14 +18,17 @@ const ROLE_CLASS: Record<string, string> = { father: "role-father", mother: "rol
 export default function History() {
   const [filterUserId, setFilterUserId] = useState<string>("all");
 
-  const { data: myFamily } = trpc.family.getMyFamily.useQuery();
+  const { data: myFamily, isLoading: familyLoading } = trpc.family.getMyFamily.useQuery();
   const members = myFamily?.members;
 
-  const { data: logs, isLoading } = trpc.activities.getHistory.useQuery({
-    userId: filterUserId !== "all" ? parseInt(filterUserId) : undefined,
-    limit: 100,
-    offset: 0,
-  });
+  const { data: logs, isLoading } = trpc.activities.getHistory.useQuery(
+    {
+      userId: filterUserId !== "all" ? parseInt(filterUserId) : undefined,
+      limit: 100,
+      offset: 0,
+    },
+    { enabled: !!myFamily }
+  );
 
   const memberMap = useMemo(() => {
     const map: Record<number, { displayName: string | null; familyRole: string | null; name: string | null }> = {};
@@ -46,6 +49,16 @@ export default function History() {
       .sort(([a], [b]) => b.localeCompare(a))
       .map(([date, items]) => ({ date, items }));
   }, [logs]);
+
+  if (!familyLoading && !myFamily) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 gap-4">
+        <div className="text-4xl">🏠</div>
+        <p className="text-muted-foreground text-center">You need to join or create a family first.</p>
+        <a href="/family-setup" className="inline-flex items-center justify-center rounded-xl bg-primary text-primary-foreground px-4 py-2 text-sm font-medium">Set Up Your Family</a>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-2xl mx-auto p-6">

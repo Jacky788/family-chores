@@ -64,7 +64,11 @@ export default function Dashboard() {
   const [period, setPeriod] = useState<Period>("weekly");
   const [refDate] = useState(() => Date.now());
 
-  const { data, isLoading } = trpc.activities.getDashboard.useQuery({ period, referenceDate: refDate });
+  const { data: myFamily, isLoading: familyLoading } = trpc.family.getMyFamily.useQuery();
+  const { data, isLoading } = trpc.activities.getDashboard.useQuery(
+    { period, referenceDate: refDate },
+    { enabled: !!myFamily }
+  );
 
   const memberMap = useMemo(() => {
     const map: Record<number, { id: number; displayName: string | null; familyRole: string | null; name: string | null }> = {};
@@ -121,6 +125,16 @@ export default function Dashboard() {
   }, [totalsMap]);
 
   const periodLabel = { daily: "Today", weekly: "This Week", monthly: "This Month" }[period];
+
+  if (!familyLoading && !myFamily) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 gap-4">
+        <div className="text-4xl">🏠</div>
+        <p className="text-muted-foreground text-center">You need to join or create a family first.</p>
+        <a href="/family-setup" className="inline-flex items-center justify-center rounded-xl bg-primary text-primary-foreground px-4 py-2 text-sm font-medium">Set Up Your Family</a>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-4xl mx-auto p-6">
